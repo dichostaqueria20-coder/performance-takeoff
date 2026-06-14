@@ -557,13 +557,10 @@ CRITICAL RULES:
     sb.textContent='analyzing…';sb.className='fib a';
     try{
       const b64=await toB64(files[i]);
-      const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      const resp=await fetch('https://broad-sky-8afa.dichostaqueria20.workers.dev',{
         method:'POST',
         headers:{
-          'Content-Type':'application/json',
-          'x-api-key':'sk-ant-api03-2xRwhTgiM4tCmJqjSKGoCZJ4qWNp25m6C5MJEIZGTxM4SfKxY-Gv_YcFoU2RO_JWOuiwkj42XWR1I2g-NEMj1A-jbAR9gAA',
-          'anthropic-version':'2023-06-01',
-          'anthropic-dangerous-direct-browser-access':'true'
+          'Content-Type':'application/json'
         },
         body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8000,
           messages:[{role:'user',content:[
