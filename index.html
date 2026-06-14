@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Performance Takeoff — HVAC Duct Calculator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root{
+  --bg:#060B14;--s:#0A1220;--c:#0D1828;--c2:#101E30;
+  --b:#1A2D45;--b2:#22385A;
+  --red:#E8212B;--r2:#FF4D55;--rdim:rgba(232,33,43,0.08);
+  --tx:#EDF2F7;--t2:#A8BDD0;--mt:#4A6680;
+  --gr:#00C97A;--gd:#FFB300;--bl:#2196F3;
+  --rr:12px;--r2r:8px;--fn:'Inter',sans-serif;--mo:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-family:var(--fn);overflow:hidden;}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 700px 500px at 70% 20%,rgba(21,101,192,.07),transparent 70%),
+             radial-gradient(ellipse 500px 400px at 20% 80%,rgba(232,33,43,.05),transparent 70%);}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:300;height:54px;
+  display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+  background:rgba(6,11,20,.96);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--b);box-shadow:0 1px 0 rgba(232,33,43,.12),0 4px 20px rgba(0,0,0,.4);}
+.nl{display:flex;align-items:center;gap:10px;min-width:0;flex:1;}
+.nb{width:36px;height:36px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,#E8212B,#8B0000);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 12px rgba(232,33,43,.4);font-size:17px;position:relative;}
+.nb::after{content:'';position:absolute;inset:0;border-radius:9px;border:1px solid rgba(255,255,255,.15);}
+.nm{font-size:13px;font-weight:800;color:var(--tx);white-space:nowrap;}
+.nm em{font-style:normal;color:var(--r2);}
+.ns{font-size:9px;color:var(--mt);letter-spacing:1px;text-transform:uppercase;}
+.np{display:flex;align-items:center;gap:5px;font-family:var(--mo);font-size:9.5px;color:var(--r2);
+  border:1px solid rgba(232,33,43,.35);padding:3px 9px;border-radius:20px;background:var(--rdim);flex-shrink:0;}
+.nd{width:5px;height:5px;border-radius:50%;background:var(--r2);animation:bk 2s ease-in-out infinite;}
+@keyframes bk{0%,100%{opacity:1}50%{opacity:.3}}
+.nr{display:flex;align-items:center;gap:5px;}
+.nt{font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--mt);background:var(--c);border:1px solid var(--b);padding:3px 7px;border-radius:5px;}
+@media(max-width:600px){.np{display:none;}}
+
+/* SHELL */
+.shell{display:grid;grid-template-columns:440px 1fr;height:100vh;padding-top:54px;position:relative;z-index:1;}
+@media(max-width:860px){.shell{grid-template-columns:1fr;grid-template-rows:1fr 200px;}
+  .right{order:2;}.left{order:1;}}
+
+/* LEFT */
+.left{display:flex;flex-direction:column;border-right:1px solid var(--b);overflow:hidden;
+  background:linear-gradient(180deg,var(--s),var(--bg));}
+
+/* TABS */
+.tabs{display:flex;border-bottom:1px solid var(--b);background:rgba(6,11,20,.6);
+  padding:5px 4px 0;gap:2px;}
+.tab{flex:1;padding:9px 4px 8px;font-size:10.5px;font-weight:600;text-align:center;
+  cursor:pointer;color:var(--mt);border-bottom:2px solid transparent;
+  transition:all .2s;border-radius:5px 5px 0 0;
+  display:flex;align-items:center;justify-content:center;gap:4px;}
+.tab:hover{color:var(--t2);background:rgba(255,255,255,.03);}
+.tab.active{color:var(--tx);border-color:var(--red);background:rgba(232,33,43,.06);}
+
+/* PANEL */
+.panel{display:none;flex-direction:column;flex:1;overflow-y:auto;padding:14px 13px;}
+.panel.active{display:flex;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:2px;}
+
+/* UPLOAD */
+.uz{border:2px dashed var(--b2);border-radius:var(--rr);padding:22px 16px;
+  text-align:center;cursor:pointer;transition:all .25s;
+  background:linear-gradient(135deg,rgba(13,24,40,.8),rgba(10,18,32,.9));margin-bottom:11px;}
+.uz:hover,.uz.drag{border-color:var(--red);background:rgba(232,33,43,.05);}
+.ui{width:46px;height:46px;margin:0 auto 10px;
+  background:linear-gradient(135deg,rgba(232,33,43,.15),rgba(139,0,0,.1));
+  border:1px solid rgba(232,33,43,.25);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:20px;}
+.ut{font-size:13px;font-weight:700;margin-bottom:3px;}
+.us{font-size:10.5px;color:var(--mt);margin-bottom:11px;line-height:1.5;}
+.uf{display:flex;gap:5px;justify-content:center;margin-bottom:11px;}
+.ftg{font-size:9px;font-family:var(--mo);font-weight:600;padding:2px 7px;border-radius:4px;
+  background:rgba(33,150,243,.1);color:#64B5F6;border:1px solid rgba(33,150,243,.2);}
+.bup{display:inline-flex;align-items:center;gap:6px;
+  background:linear-gradient(135deg,var(--red),#C0392B);
+  color:#fff;font-weight:700;font-size:12px;padding:8px 18px;
+  border-radius:7px;cursor:pointer;border:none;transition:all .2s;
+  box-shadow:0 4px 14px rgba(232,33,43,.32);}
+.bup:hover{box-shadow:0 6px 20px rgba(232,33,43,.48);transform:translateY(-1px);}
+
+/* FILE LIST */
+.fl{margin-bottom:11px;display:flex;flex-direction:column;gap:5px;}
+.fi{display:flex;align-items:center;gap:8px;background:var(--c2);
+  border:1px solid var(--b);border-radius:var(--r2r);padding:7px 10px;}
+.fip{width:26px;height:26px;border-radius:5px;flex-shrink:0;
+  background:linear-gradient(135deg,rgba(232,33,43,.2),rgba(139,0,0,.15));
+  border:1px solid rgba(232,33,43,.2);display:flex;align-items:center;justify-content:center;font-size:12px;}
+.fii{flex:1;min-width:0;}
+.fin{font-size:11px;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fiz{font-size:9.5px;color:var(--mt);font-family:var(--mo);}
+.fib{font-size:9px;font-family:var(--mo);font-weight:600;padding:2px 7px;border-radius:4px;white-space:nowrap;flex-shrink:0;}
+.fib.p{color:var(--mt);background:rgba(74,102,128,.15);}
+.fib.a{color:#64B5F6;background:rgba(33,150,243,.12);animation:pt 1s ease-in-out infinite;}
+.fib.d{color:var(--gr);background:rgba(0,201,122,.1);}
+.fib.e{color:var(--r2);background:rgba(232,33,43,.1);}
+@keyframes pt{0%,100%{opacity:1}50%{opacity:.4}}
+.frm{background:none;border:none;color:var(--mt);cursor:pointer;font-size:14px;padding:2px 4px;flex-shrink:0;}
+.frm:hover{color:var(--r2);}
+
+/* ANALYZE BTN */
+#ab{width:100%;padding:12px;border:none;border-radius:var(--rr);
+  background:linear-gradient(135deg,var(--red),#9B1C22);
+  color:#fff;font-weight:800;font-size:13px;cursor:pointer;
+  display:none;transition:all .2s;position:relative;overflow:hidden;letter-spacing:.3px;}
+#ab::before{content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);transition:left .5s;}
+#ab:hover::before{left:100%;}
+#ab.show{display:block;animation:pb 3s ease-in-out infinite;}
+@keyframes pb{0%,100%{box-shadow:0 0 0 0 rgba(232,33,43,.25)}50%{box-shadow:0 0 0 7px transparent}}
+#ab:hover{transform:translateY(-1px);}
+#ab:disabled{opacity:.6;cursor:not-allowed;transform:none;animation:none;}
+
+/* PROGRESS */
+.pw{display:none;margin-top:9px;padding:11px 13px;background:var(--c);border:1px solid var(--b);border-radius:var(--r2r);}
+.pw.show{display:block;}
+.ph{display:flex;justify-content:space-between;margin-bottom:6px;}
+.pt2{font-size:10.5px;font-weight:600;color:var(--t2);}
+.pp{font-size:10.5px;font-family:var(--mo);color:var(--r2);}
+.pbg{background:var(--b);border-radius:3px;height:4px;overflow:hidden;margin-bottom:5px;}
+.pbar{height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--r2));transition:width .4s;border-radius:3px;}
+.pl{font-family:var(--mo);font-size:9.5px;color:var(--mt);}
+
+/* INFO BAR */
+.ib{display:flex;align-items:center;gap:7px;padding:7px 11px;
+  background:var(--c);border:1px solid var(--b);border-radius:var(--r2r);margin-top:9px;}
+.ibd{width:5px;height:5px;border-radius:50%;background:var(--b2);}
+.ibd.on{background:var(--gr);}
+.ibt{font-size:10.5px;color:var(--mt);}
+
+/* SECTION TITLE */
+.st{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:var(--mt);padding:9px 0 6px;border-bottom:1px solid var(--b);
+  margin-bottom:11px;display:flex;align-items:center;gap:6px;}
+.st::before{content:'';display:block;width:3px;height:11px;background:var(--red);border-radius:2px;}
+
+/* SUMMARY */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:13px;}
+.sc2{background:linear-gradient(135deg,var(--c2),var(--c));border:1px solid var(--b);
+  border-radius:var(--rr);padding:11px 13px;position:relative;overflow:hidden;}
+.sc2::before{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--red),transparent);}
+.sv{font-size:22px;font-weight:900;color:var(--r2);font-family:var(--mo);line-height:1;}
+.sl{font-size:9.5px;color:var(--mt);margin-top:3px;font-weight:500;}
+
+/* TABLE */
+.tw{overflow-x:auto;border-radius:var(--rr);border:1px solid var(--b);margin-bottom:11px;}
+table{width:100%;border-collapse:collapse;font-size:10.5px;}
+thead tr{background:linear-gradient(135deg,#142030,#0F1828);}
+th{color:var(--t2);font-weight:700;padding:8px 9px;text-align:left;
+  font-size:9px;letter-spacing:.7px;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid var(--b);}
+td{padding:6px 9px;border-bottom:1px solid rgba(26,45,69,.4);color:var(--t2);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+td.mk{color:var(--r2);font-family:var(--mo);font-weight:700;}
+td.sz{color:var(--tx);font-family:var(--mo);}
+td.se{color:var(--gr);font-family:var(--mo);font-weight:700;}
+td.rm{color:var(--gd);font-family:var(--mo);}
+.tr2 td{background:rgba(232,33,43,.08)!important;color:var(--tx);font-weight:700;border-top:1px solid rgba(232,33,43,.2);}
+
+/* PRICE INPUT */
+.pi{width:72px;background:var(--c);border:1px solid var(--b2);
+  border-radius:4px;color:var(--tx);font-family:var(--mo);font-size:10.5px;
+  padding:3px 5px;text-align:right;}
+.pi:focus{outline:none;border-color:var(--gr);}
+td.tc{color:var(--gr);font-family:var(--mo);font-weight:700;}
+
+/* ESTIMATE TOTAL */
+.et{background:linear-gradient(135deg,rgba(0,201,122,.1),rgba(0,201,122,.05));
+  border:1px solid rgba(0,201,122,.3);border-radius:var(--rr);
+  padding:13px 15px;margin:7px 0 13px;display:flex;justify-content:space-between;align-items:center;}
+.etl{font-size:10.5px;font-weight:700;color:var(--t2);}
+.etv{font-size:20px;font-weight:900;color:var(--gr);font-family:var(--mo);}
+
+/* FAB CARD */
+.fc{background:var(--c2);border:1px solid var(--b);border-radius:var(--rr);margin-bottom:9px;overflow:hidden;}
+.fh{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;
+  background:linear-gradient(135deg,rgba(20,32,48,.9),rgba(13,24,40,.8));border-bottom:1px solid var(--b);}
+.fsz{font-size:12px;font-weight:800;font-family:var(--mo);color:var(--r2);
+  background:rgba(232,33,43,.1);border:1px solid rgba(232,33,43,.25);padding:2px 9px;border-radius:5px;}
+.fct{font-size:9.5px;font-family:var(--mo);color:var(--mt);
+  background:var(--c);border:1px solid var(--b);padding:2px 8px;border-radius:4px;}
+
+/* GRAND */
+.gc{background:linear-gradient(135deg,rgba(232,33,43,.1),rgba(139,0,0,.08));
+  border:1px solid rgba(232,33,43,.3);border-radius:var(--rr);
+  padding:15px;margin:4px 0 11px;position:relative;overflow:hidden;}
+.gc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--red),var(--r2),transparent);}
+.gl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mt);margin-bottom:4px;}
+.gv{font-size:24px;font-weight:900;color:var(--r2);font-family:var(--mo);line-height:1;}
+.gs{font-size:10.5px;color:var(--mt);margin-top:4px;}
+
+/* NOTE */
+.nc{background:rgba(255,179,0,.06);border:1px solid rgba(255,179,0,.2);
+  border-radius:var(--r2r);padding:9px 11px;margin-bottom:9px;
+  font-size:10.5px;color:#FFB74D;line-height:1.5;display:flex;gap:7px;}
+
+/* EXPORT */
+.er{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;}
+.bx{flex:1;min-width:80px;padding:8px 5px;border-radius:var(--r2r);font-size:10.5px;font-weight:700;
+  cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:4px;border:1px solid;}
+.bc{background:rgba(0,201,122,.08);border-color:rgba(0,201,122,.25);color:var(--gr);}
+.bc:hover{background:rgba(0,201,122,.18);border-color:var(--gr);}
+.bp{background:rgba(232,33,43,.08);border-color:rgba(232,33,43,.25);color:var(--r2);}
+.bp:hover{background:rgba(232,33,43,.18);border-color:var(--r2);}
+.be{background:rgba(255,179,0,.08);border-color:rgba(255,179,0,.25);color:var(--gd);}
+.be:hover{background:rgba(255,179,0,.18);border-color:var(--gd);}
+
+/* EMPTY */
+.em{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 20px;text-align:center;gap:10px;flex:1;}
+.emi{font-size:34px;opacity:.3;}
+.emt{font-size:11.5px;color:var(--mt);line-height:1.7;}
+
+/* RIGHT 3D */
+.right{position:relative;overflow:hidden;
+  background:radial-gradient(ellipse 120% 100% at 60% 30%,rgba(21,101,192,.08),var(--bg) 65%);}
+#tc{width:100%;height:100%;display:block;}
+.otl{position:absolute;top:13px;left:15px;pointer-events:none;}
+.oe{font-family:var(--mo);font-size:9px;color:rgba(33,150,243,.55);letter-spacing:2px;text-transform:uppercase;margin-bottom:3px;}
+.op{font-size:14px;font-weight:800;color:var(--tx);}
+.os{font-size:9.5px;color:var(--mt);margin-top:2px;}
+.lg{position:absolute;top:13px;right:13px;background:rgba(6,11,20,.9);backdrop-filter:blur(12px);
+  border:1px solid var(--b);border-radius:var(--rr);padding:10px 12px;min-width:125px;}
+.lgt{font-family:var(--mo);font-size:8.5px;color:var(--mt);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px;}
+.lgi{display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:9.5px;color:var(--t2);}
+.lgi:last-child{margin-bottom:0;}
+.lgs{width:14px;height:5px;border-radius:3px;flex-shrink:0;}
+.sr{position:absolute;bottom:46px;left:13px;right:13px;display:flex;gap:5px;pointer-events:none;flex-wrap:wrap;}
+.scp{background:rgba(6,11,20,.85);backdrop-filter:blur(10px);border:1px solid var(--b);
+  border-radius:6px;padding:4px 9px;font-size:9.5px;font-family:var(--mo);
+  display:flex;align-items:center;gap:5px;color:var(--t2);}
+.scd{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.hn{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+  font-size:9.5px;color:var(--mt);background:rgba(6,11,20,.75);
+  padding:4px 11px;border-radius:20px;border:1px solid var(--b);white-space:nowrap;pointer-events:none;}
+.vb2{position:absolute;bottom:12px;right:12px;display:flex;gap:4px;}
+.vb{padding:4px 10px;border-radius:5px;font-size:9.5px;font-weight:700;cursor:pointer;
+  border:1px solid var(--b);background:rgba(6,11,20,.8);color:var(--mt);transition:all .2s;}
+.vb:hover{color:var(--t2);border-color:var(--b2);}
+.vb.active{background:var(--red);border-color:var(--red);color:#fff;}
+
+/* PRINT */
+@media print{
+  body{overflow:auto;background:#fff;color:#000;}
+  nav,.tabs,.uz,.fl,#ab,.pw,.ib,.vb2,.hn,.sr,.lg,.er,.right,.otl{display:none!important;}
+  .shell{display:block;padding-top:0;}.left{border:none;overflow:visible;height:auto;}
+  .panel{display:block!important;overflow:visible;}
+  .ph2{display:block!important;text-align:center;padding:8px 0 16px;
+    border-bottom:2px solid #C0392B;margin-bottom:14px;}
+  table{font-size:9.5px;}.tw{border:1px solid #ccc;}
+  th{background:#f0f0f0!important;color:#000;}td{color:#333;}
+  td.mk{color:#C0392B;}td.sz,td.se{color:#000;}
+  .gc,.et{background:#f9f9f9!important;border:1px solid #ccc;}
+  .gv,.etv{color:#C0392B;}.fc{border:1px solid #ccc;}
+  .fh{background:#f0f0f0!important;}.fsz{color:#C0392B;background:#ffe0e0!important;}
+  .sg{grid-template-columns:repeat(4,1fr);}
+  .sc2{border:1px solid #ccc;background:#fff!important;}.sv{color:#C0392B;}
+  .nc{background:#fff8e1!important;border:1px solid #ffcc02;color:#333;}
+  .pi{border:1px solid #ccc;}
+}
+.ph2{display:none;}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nl">
+    <div class="nb">⭐</div>
+    <div style="line-height:1.2;min-width:0;">
+      <div class="nm">Performance <em>Takeoff</em></div>
+      <div class="ns">Performance Mechanical Texas LLC</div>
+    </div>
+    <div class="np"><div class="nd"></div>HVAC · DUCT · MEP</div>
+  </div>
+  <div class="nr">
+    <span class="nt" style="color:var(--r2);border-color:rgba(232,33,43,.3);background:var(--rdim)">HVAC</span>
+    <span class="nt">v2.0</span>
+  </div>
+</nav>
+
+<div class="shell">
+  <div class="left">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('upload')">📂 Upload</div>
+      <div class="tab" onclick="switchTab('takeoff')">📋 Takeoff</div>
+      <div class="tab" onclick="switchTab('fab')">🔧 Fabrication</div>
+      <div class="tab" onclick="switchTab('est')">💰 Estimate</div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="panel active" id="tab-upload">
+      <div class="uz" id="dz">
+        <div class="ui">📐</div>
+        <div class="ut">Drop HVAC PDF Drawings Here</div>
+        <div class="us">M-sheets · Mechanical plans · Duct schedules · Piping drawings</div>
+        <div class="uf">
+          <span class="ftg">PDF</span>
+          <span class="ftg">M-SHEETS</span>
+          <span class="ftg">MAX 10 FILES</span>
+        </div>
+        <button class="bup" onclick="document.getElementById('fi').click()">📎 Select Files</button>
+        <input type="file" id="fi" accept=".pdf,application/pdf" multiple style="display:none;position:absolute;opacity:0;width:1px;height:1px;"/>
+      </div>
+      <div class="fl" id="flist"></div>
+      <button id="ab" onclick="runAnalysis()">⚡  Analyze All Drawings</button>
+      <div class="pw" id="pw">
+        <div class="ph"><span class="pt2">AI Analysis Engine</span><span class="pp" id="pp">0%</span></div>
+        <div class="pbg"><div class="pbar" id="pb2"></div></div>
+        <div class="pl" id="pl">Initializing…</div>
+      </div>
+      <div class="ib">
+        <div class="ibd" id="ibd"></div>
+        <span class="ibt" id="ibt">Upload up to 10 PDF mechanical drawings to begin</span>
+      </div>
+    </div>
+
+    <!-- TAKEOFF -->
+    <div class="panel" id="tab-takeoff">
+      <div class="em" id="tkem"><div class="emi">📋</div><div class="emt">Upload and analyze drawings first.</div></div>
+      <div id="tkc" style="display:none"></div>
+    </div>
+
+    <!-- FAB -->
+    <div class="panel" id="tab-fab">
+      <div class="em" id="fbem"><div class="emi">🔧</div><div class="emt">Upload and analyze drawings first.</div></div>
+      <div id="fbc" style="display:none"></div>
+    </div>
+
+    <!-- ESTIMATE -->
+    <div class="panel" id="tab-est">
+      <div class="em" id="estem"><div class="emi">💰</div><div class="emt">Upload and analyze drawings first.<br>Then enter unit prices to build your estimate.</div></div>
+      <div id="estc" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- 3D RIGHT -->
+  <div class="right">
+    <canvas id="tc"></canvas>
+    <div class="otl">
+      <div class="oe">// 3D Duct System</div>
+      <div class="op" id="pn">No Project Loaded</div>
+      <div class="os" id="ps">Upload drawings to generate 3D model</div>
+    </div>
+    <div class="lg">
+      <div class="lgt">System Legend</div>
+      <div class="lgi"><div class="lgs" style="background:linear-gradient(90deg,#2196F3,#64B5F6)"></div>Supply Duct</div>
+      <div class="lgi"><div class="lgs" style="background:linear-gradient(90deg,#FF7043,#FF8A65)"></div>Return Duct</div>
+      <div class="lgi"><div class="lgs" style="background:linear-gradient(90deg,#00E676,#69F0AE)"></div>CHW Piping</div>
+      <div class="lgi"><div class="lgs" style="background:linear-gradient(90deg,#FFD600,#FFE57F)"></div>HW Piping</div>
+      <div class="lgi"><div class="lgs" style="background:linear-gradient(90deg,#CE93D8,#E1BEE7)"></div>Equipment</div>
+      <div class="lgi"><div class="lgs" style="background:rgba(255,255,255,.2)"></div>4-ft Sections</div>
+    </div>
+    <div class="sr" id="strow">
+      <div class="scp"><div class="scd" style="background:#2196F3"></div>Supply — Active</div>
+      <div class="scp"><div class="scd" style="background:#00E676"></div>CHW — Active</div>
+      <div class="scp"><div class="scd" style="background:#FF7043"></div>Return — Active</div>
+    </div>
+    <div class="hn">🖱 Drag to rotate · Scroll to zoom</div>
+    <div class="vb2">
+      <button class="vb active" onclick="setV('iso',this)">ISO</button>
+      <button class="vb" onclick="setV('top',this)">TOP</button>
+      <button class="vb" onclick="setV('front',this)">FRONT</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════ 3D ═══════════ */
+const cvs=document.getElementById('tc');
+const renderer=new THREE.WebGLRenderer({canvas:cvs,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x060B14,.016);
+const cam=new THREE.PerspectiveCamera(42,1,.1,300);
+function rsz(){const w=cvs.parentElement.clientWidth,h=cvs.parentElement.clientHeight;
+  renderer.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();}
+rsz();window.addEventListener('resize',rsz);
+scene.add(new THREE.AmbientLight(0x1a2d42,2.8));
+const dL=new THREE.DirectionalLight(0x5599ff,1.8);dL.position.set(15,30,15);dL.castShadow=true;scene.add(dL);
+const p1=new THREE.PointLight(0x2196F3,2.5,50);p1.position.set(-10,12,5);scene.add(p1);
+const p2=new THREE.PointLight(0xFF7043,1.8,40);p2.position.set(10,10,-6);scene.add(p2);
+const p3=new THREE.PointLight(0xE8212B,1.2,25);p3.position.set(0,18,0);scene.add(p3);
+const M={
+  sup:new THREE.MeshStandardMaterial({color:0x2196F3,metalness:.75,roughness:.18,emissive:0x0D47A1,emissiveIntensity:.35}),
+  ret:new THREE.MeshStandardMaterial({color:0xFF7043,metalness:.72,roughness:.2,emissive:0xBF360C,emissiveIntensity:.32}),
+  chw:new THREE.MeshStandardMaterial({color:0x00E676,metalness:.8,roughness:.12,emissive:0x003d1f,emissiveIntensity:.4}),
+  hw:new THREE.MeshStandardMaterial({color:0xFFD600,metalness:.75,roughness:.18,emissive:0x332800,emissiveIntensity:.3}),
+  eq:new THREE.MeshStandardMaterial({color:0xCE93D8,metalness:.82,roughness:.12,emissive:0x1a0033,emissiveIntensity:.45}),
+  fl:new THREE.MeshStandardMaterial({color:0x080E18,metalness:.3,roughness:.85}),
+  dv:new THREE.MeshStandardMaterial({color:0xFFFFFF,transparent:true,opacity:.18}),
+  st:new THREE.MeshStandardMaterial({color:0x1E3048,metalness:.5,roughness:.65}),
+};
+const dg=new THREE.Group();scene.add(dg);
+function B(w,h,d,m,x,y,z,ry=0){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);
+  o.position.set(x,y,z);o.rotation.y=ry;o.castShadow=true;o.receiveShadow=true;return o;}
+function C(r,h,m,x,y,z,rx=0,rz=0){const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,12),m);
+  o.position.set(x,y,z);o.rotation.x=rx;o.rotation.z=rz;o.castShadow=true;return o;}
+
+function buildDef(){
+  dg.clear();
+  dg.add(B(36,.18,24,M.fl,0,-.09,0));
+  const g=new THREE.GridHelper(36,36,0x1A2D45,0x1A2D45);g.material.transparent=true;g.material.opacity=.28;dg.add(g);
+  [[-15,-10],[-15,10],[15,-10],[15,10],[0,-10],[0,10]].forEach(([x,z])=>dg.add(B(.4,7.5,.4,M.st,x,3.75,z)));
+  [-6,0,6].forEach(x=>dg.add(B(.25,.45,24,M.st,x,7.1,0)));
+  [[-12,7.3,-4],[0,7.3,-4],[10,7.3,-4]].forEach(([x,y,z])=>{
+    dg.add(B(2.8,.8,1.6,M.eq,x,y,z));
+    dg.add(B(.35,.35,.35,M.sup,x,y+.6,z+.35));
+    dg.add(B(.3,.3,.3,M.ret,x,y+.6,z-.35));
+  });
+  dg.add(B(28,.9,.9,M.sup,0,6,3));dg.add(B(28,.9,.9,M.sup,0,6,-3));
+  for(let x=-14;x<=14;x+=4){dg.add(B(.05,1,1,M.dv,x,6,3));dg.add(B(.05,1,1,M.dv,x,6,-3));}
+  [-12,-8,-4,0,4,8,12].forEach(x=>{dg.add(B(.55,.55,6.5,M.sup,x,5.4,0));
+    for(let z=0;z<6.5;z+=4)dg.add(B(.6,.6,.05,M.dv,x,5.4,z-3));});
+  dg.add(B(22,.65,.65,M.ret,0,4.8,0));
+  dg.add(C(.12,32,M.chw,-14,2.5,0,0,Math.PI/2));dg.add(C(.1,32,M.chw,-14,2.1,0,0,Math.PI/2));
+  dg.add(C(.1,32,M.hw,14,2.5,0,0,Math.PI/2));dg.add(C(.08,32,M.hw,14,2.1,0,0,Math.PI/2));
+  [-10,-5,0,5,10].forEach(x=>[3,-3].forEach(z=>dg.add(B(.6,.05,.6,M.sup,x,7.22,z))));
+  [-8,-2,4,10].forEach(x=>dg.add(B(.9,.42,.58,M.eq,x,5.82,0)));
+}
+
+function buildFromData(data){
+  dg.clear();
+  dg.add(B(44,.15,32,M.fl,0,-.08,0));
+  const g=new THREE.GridHelper(44,44,0x1A2D45,0x1A2D45);g.material.transparent=true;g.material.opacity=.22;dg.add(g);
+  (data.equipment||[]).slice(0,6).forEach((eq,i)=>dg.add(B(2.8,1.9,1.6,M.eq,-14+i*5.5,.95,-10)));
+  const ducts=data.duct_items||[];
+  const straights=ducts.filter(d=>d.type&&d.type.toLowerCase().includes('straight'));
+  const isRet=(data.duct_system?.type||'').toLowerCase().includes('return');
+  const dMat=isRet?M.ret:M.sup;
+  let tw=.9,th=.9;
+  if(straights.length){
+    const sz=(straights[0].size||'22').replace(/"/g,'').replace(/[^0-9x×]/g,' ').trim();
+    const p=sz.split(/[x×\s]+/).filter(Boolean);
+    if(p.length>=2){tw=Math.max(.4,Math.min(3,parseFloat(p[0])/22));th=Math.max(.3,Math.min(2.5,parseFloat(p[1])/22));}
+  }
+  dg.add(B(32,th,tw,dMat,0,6,0));
+  for(let x=-16;x<=16;x+=4)dg.add(B(.05,th+.12,tw+.12,M.dv,x,6,0));
+  const marks=[...new Set(ducts.map(d=>d.mark))].slice(0,20);
+  marks.forEach((mk,i)=>{
+    const items=ducts.filter(d=>d.mark===mk);
+    const tl=items.reduce((s,d)=>s+(parseFloat((d.length||'0').replace(/[^0-9.]/g,''))||0),0);
+    const bl=Math.max(1.5,tl/3.5);const x=-16+i*1.7;
+    dg.add(B(tw*.65,th*.65,bl,i%3===0?M.ret:dMat,x,5.4,bl/2+tw/2));
+    for(let s=0;s<bl;s+=4)dg.add(B(.04,th*.7,th*.7,M.dv,x,5.4,s+tw/2));
+  });
+  const sys=data.piping?.systems_present||[];
+  if(sys.some(s=>/CHW|Chilled/i.test(s))){
+    dg.add(C(.13,38,M.chw,-16,2.5,0,0,Math.PI/2));dg.add(C(.1,38,M.chw,-16,2.0,0,0,Math.PI/2));}
+  if(sys.some(s=>/HW|Hot/i.test(s))){
+    dg.add(C(.11,38,M.hw,16,2.5,0,0,Math.PI/2));dg.add(C(.09,38,M.hw,16,2.0,0,0,Math.PI/2));}
+}
+buildDef();
+
+let drag=false,px=0,py=0,theta=.65,phi=.72,rad=34;
+const tgt=new THREE.Vector3(0,3,0);
+cvs.addEventListener('mousedown',e=>{drag=true;px=e.clientX;py=e.clientY;});
+window.addEventListener('mouseup',()=>drag=false);
+window.addEventListener('mousemove',e=>{if(!drag)return;theta-=(e.clientX-px)*.008;phi-=(e.clientY-py)*.006;
+  phi=Math.max(.08,Math.min(1.45,phi));px=e.clientX;py=e.clientY;});
+cvs.addEventListener('wheel',e=>{rad=Math.max(8,Math.min(65,rad+e.deltaY*.05));});
+cvs.addEventListener('touchstart',e=>{drag=true;px=e.touches[0].clientX;py=e.touches[0].clientY;},{passive:true});
+cvs.addEventListener('touchend',()=>drag=false);
+cvs.addEventListener('touchmove',e=>{if(!drag)return;theta-=(e.touches[0].clientX-px)*.012;
+  phi-=(e.touches[0].clientY-py)*.009;phi=Math.max(.08,Math.min(1.45,phi));
+  px=e.touches[0].clientX;py=e.touches[0].clientY;},{passive:true});
+function setV(v,btn){document.querySelectorAll('.vb').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+  if(v==='iso'){theta=.65;phi=.72;rad=34;}else if(v==='top'){phi=.06;rad=38;}else{theta=0;phi=.5;rad=32;}}
+let t=0;
+(function anim(){requestAnimationFrame(anim);t+=.006;if(!drag)theta+=.0018;
+  cam.position.x=tgt.x+rad*Math.sin(phi)*Math.sin(theta);
+  cam.position.y=tgt.y+rad*Math.cos(phi);
+  cam.position.z=tgt.z+rad*Math.sin(phi)*Math.cos(theta);
+  cam.lookAt(tgt);p1.intensity=2.2+.6*Math.sin(t*1.3);
+  M.sup.emissiveIntensity=.28+.13*Math.sin(t*1.4);
+  M.ret.emissiveIntensity=.26+.12*Math.sin(t*1.1+1);
+  M.chw.emissiveIntensity=.35+.16*Math.sin(t*.9+.5);
+  M.eq.emissiveIntensity=.38+.18*Math.sin(t*.7+2);
+  renderer.render(scene,cam);})();
+
+/* ═══════════ FILES ═══════════ */
+let files=[];
+function fsz(b){return b>1048576?(b/1048576).toFixed(1)+' MB':(b/1024).toFixed(0)+' KB';}
+function addF(nf){Array.from(nf).filter(f=>f.type==='application/pdf').forEach(f=>{
+  if(files.length<10&&!files.find(x=>x.name===f.name))files.push(f);});renderFL();}
+function renderFL(){
+  document.getElementById('flist').innerHTML=files.map((f,i)=>`
+    <div class="fi">
+      <div class="fip">📄</div>
+      <div class="fii"><div class="fin">${f.name}</div><div class="fiz">${fsz(f.size)}</div></div>
+      <span class="fib p" id="fs${i}">${fsz(f.size)}</span>
+      <button class="frm" onclick="rmF(${i})">✕</button>
+    </div>`).join('');
+  const a=document.getElementById('ab');
+  a.style.display=files.length?'block':'none';a.classList.toggle('show',files.length>0);
+  document.getElementById('ibd').classList.toggle('on',files.length>0);
+  document.getElementById('ibt').textContent=files.length?`${files.length}/10 file${files.length>1?'s':''} ready`:'Upload up to 10 PDF mechanical drawings to begin';
+}
+function rmF(i){files.splice(i,1);renderFL();}
+document.getElementById('fi').addEventListener('change',e=>addF(e.target.files));
+const dz=document.getElementById('dz');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');addF(e.dataTransfer.files);});
+
+/* ═══════════ ANALYSIS ═══════════ */
+const STEPS=[[8,'Reading PDF headers…'],[18,'Detecting HVAC sheets…'],[32,'Extracting duct schedules…'],
+  [48,'Parsing fittings & valves…'],[62,'Calculating 4-ft sections…'],[74,'Building material list…'],
+  [85,'Generating 3D model…'],[94,'Compiling report…'],[100,'Analysis complete ✓']];
+function animP(){let i=0;(function nx(){if(i>=STEPS.length)return;const[p,l]=STEPS[i++];
+  document.getElementById('pb2').style.width=p+'%';document.getElementById('pp').textContent=p+'%';
+  document.getElementById('pl').textContent=l;setTimeout(nx,380+Math.random()*220);})();}
+function toB64(f){return new Promise((res,rej)=>{const r=new FileReader();
+  r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});}
+
+let gData=null;
+
+async function runAnalysis(){
+  if(!files.length)return;
+  const ab=document.getElementById('ab');
+  ab.disabled=true;ab.textContent='⏳  Analyzing…';
+  document.getElementById('pw').classList.add('show');
+  animP();
+
+  const PROMPT=`You are an expert HVAC mechanical engineer analyzing construction drawings.
+Examine ALL pages carefully. Look for ductwork schedule tables with columns: Mark, Count, BOD/Elevation, Description/Type, Size, Length.
+Also look for equipment schedules, plan views with duct annotations, ISO drawings with numbered pieces.
+Extract EVERY single item from ALL tables. Do not skip any rows.
+Respond ONLY with valid JSON. No markdown, no backticks, no text before or after the JSON.
+
+{"project":{"name":null,"number":null,"address":null,"engineer":null,"date":null,"sheet":null,"phase":null},"equipment":[{"tag":"","type":"","zone":null,"capacity":null,"cfm":null,"brand":null,"model":null}],"duct_system":{"type":"Supply or Return or Exhaust","material":null,"static_pressure":null,"insulation":null,"notes":null},"duct_items":[{"mark":"","count":1,"type":"Straight or Square Elbow or Gored Elbow or Transition or Tee or Reducer or Canvas or Grille Box or Spiral Pipe or Bellmouth or Round Coupling or Other","size":"","length":null,"elevation":null,"sections_4ft":0,"remainder_inches":0}],"piping":{"systems_present":[],"material":null,"insulation":null,"notes":null},"grilles_diffusers":[{"mark":"","type":"","size":"","count":1,"cfm":null}],"valves":[{"type":"","size":"","count":1}],"critical_notes":[],"summary":{"total_duct_items":0,"total_straight_sections":0,"total_fittings":0,"total_grilles":0,"total_valves":0,"systems_detected":[],"scope":""}}
+
+CRITICAL RULES:
+1. For STRAIGHT pieces ONLY: sections_4ft=Math.floor(length_in_feet/4), remainder_inches=(length_in_feet%4)*12
+2. Parse length strings like "4'-8 1/4" as feet+inches: 4 + 8.25/12 = 4.687 feet
+3. Extract EVERY row from EVERY schedule table - minimum 1 item if any HVAC content exists
+4. Common sizes: rectangular like 62x62 or 50x72, round like 22dia or 22ø
+5. If you see a blue 3D ISO drawing with numbered pieces, extract those piece numbers as marks`;
+
+  const all=[];
+  for(let i=0;i<files.length;i++){
+    const sb=document.getElementById(`fs${i}`);
+    sb.textContent='analyzing…';sb.className='fib a';
+    try{
+      const b64=await toB64(files[i]);
+      const resp=await fetch('https://broad-sky-8afa.dichostaqueria20.workers.dev',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:8000,
+          messages:[{role:'user',content:[
+            {type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}},
+            {type:'text',text:PROMPT}
+          ]}]})
+      });
+      const d=await resp.json();
+      if(d.error)throw new Error(d.error.message);
+      const raw=d.content.map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
+      if(!raw)throw new Error('Empty response from API');
+      const parsed=JSON.parse(raw);
+      parsed._fn=files[i].name;
+      all.push(parsed);
+      sb.textContent='✓ Done';sb.className='fib d';
+    }catch(e){
+      sb.textContent='Error: '+e.message.substring(0,20);sb.className='fib e';
+      console.error(e);
+    }
+  }
+  if(all.length){gData=all;renderAll(all);}
+  ab.disabled=false;ab.textContent='⚡  Re-analyze';
+}
+
+/* ═══════════ RENDER ═══════════ */
+function renderAll(all){
+  const mg={equipment:[],duct_items:[],grilles:[],valves:[],
+    piping:{systems_present:[]},notes:[],
+    summary:{total_duct_items:0,total_straight_sections:0,total_fittings:0,total_grilles:0,total_valves:0}};
+  all.forEach(d=>{
+    if(d.equipment)mg.equipment.push(...d.equipment);
+    if(d.duct_items)mg.duct_items.push(...d.duct_items);
+    if(d.grilles_diffusers)mg.grilles.push(...d.grilles_diffusers);
+    if(d.valves)mg.valves.push(...d.valves);
+    if(d.piping?.systems_present)mg.piping.systems_present.push(...d.piping.systems_present);
+    if(d.critical_notes)mg.notes.push(...d.critical_notes);
+    if(d.summary)['total_duct_items','total_straight_sections','total_fittings','total_grilles','total_valves']
+      .forEach(k=>mg.summary[k]+=(d.summary[k]||0));
+    if(d.duct_system)mg.duct_system=d.duct_system;
+  });
+  mg.piping.systems_present=[...new Set(mg.piping.systems_present)];
+  const d=all[0];
+  buildFromData(mg);
+  document.getElementById('pn').textContent=d.project?.name||d._fn||'HVAC Project';
+  document.getElementById('ps').textContent=`${d.project?.sheet||''} · ${mg.duct_system?.type||'HVAC'} · ${mg.duct_items.length} items`;
+  document.getElementById('strow').innerHTML=`
+    <div class="scp"><div class="scd" style="background:#2196F3"></div>${mg.duct_items.length} Duct Items</div>
+    <div class="scp"><div class="scd" style="background:#00E676"></div>${mg.duct_items.filter(i=>i.type?.toLowerCase().includes('straight')).length} Straights</div>
+    <div class="scp"><div class="scd" style="background:#FF7043"></div>${mg.duct_items.filter(i=>i.type&&!i.type.toLowerCase().includes('straight')).length} Fittings</div>`;
+  renderTakeoff(mg);renderFab(mg);renderEst(mg);
+  switchTab('takeoff');
+}
+
+function renderTakeoff(mg){
+  const st=mg.duct_items.filter(d=>d.type?.toLowerCase().includes('straight'));
+  const ft=mg.duct_items.filter(d=>d.type&&!d.type.toLowerCase().includes('straight'));
+  const grT=mg.grilles.reduce((s,g)=>s+(g.count||1),0)||mg.summary.total_grilles;
+  let h=`<div class="ph2"><div style="font-size:16px;font-weight:900;color:#C0392B">⭐ Performance Mechanical Texas LLC</div><div style="font-size:12px;margin-top:3px">Duct Takeoff Report</div></div>
+    <div class="st">Project Summary</div>
+    <div class="sg">
+      <div class="sc2"><div class="sv">${mg.duct_items.length}</div><div class="sl">Total Duct Items</div></div>
+      <div class="sc2"><div class="sv">${st.length}</div><div class="sl">Straight Pieces</div></div>
+      <div class="sc2"><div class="sv">${ft.length}</div><div class="sl">Fittings</div></div>
+      <div class="sc2"><div class="sv">${grT}</div><div class="sl">Grilles/Diffusers</div></div>
+    </div>`;
+  if(mg.duct_items.length){
+    h+=`<div class="st">Duct Schedule</div><div class="tw"><table>
+      <thead><tr><th>Mark</th><th>Qty</th><th>Type</th><th>Size</th><th>Length</th></tr></thead>
+      <tbody>${mg.duct_items.map(d=>`<tr><td class="mk">${d.mark||'—'}</td><td>${d.count||1}</td>
+        <td>${d.type||'—'}</td><td class="sz">${d.size||'—'}</td><td>${d.length||'—'}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+  if(mg.equipment.length){
+    h+=`<div class="st">Equipment Schedule</div><div class="tw"><table>
+      <thead><tr><th>Tag</th><th>Type</th><th>Zone</th><th>Capacity</th><th>CFM</th></tr></thead>
+      <tbody>${mg.equipment.map(e=>`<tr><td class="mk">${e.tag||'—'}</td><td>${e.type||'—'}</td>
+        <td>${e.zone||'—'}</td><td class="sz">${e.capacity||'—'}</td><td>${e.cfm||'—'}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+  if(mg.grilles.length){
+    h+=`<div class="st">Grilles & Diffusers</div><div class="tw"><table>
+      <thead><tr><th>Mark</th><th>Type</th><th>Size</th><th>Qty</th><th>CFM</th></tr></thead>
+      <tbody>${mg.grilles.map(g=>`<tr><td class="mk">${g.mark||'—'}</td><td>${g.type||'—'}</td>
+        <td class="sz">${g.size||'—'}</td><td>${g.count||1}</td><td>${g.cfm||'—'}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+  if(mg.notes.length)h+=`<div class="st">Critical Notes</div>${mg.notes.slice(0,5).map(n=>`<div class="nc"><span>⚠️</span>${n}</div>`).join('')}`;
+  h+=`<div class="er">
+    <button class="bx bc" onclick="expCSV()">⬇ CSV</button>
+    <button class="bx bp" onclick="printReport('takeoff')">🖨 Print PDF</button>
+  </div>`;
+  document.getElementById('tkem').style.display='none';
+  document.getElementById('tkc').style.display='block';
+  document.getElementById('tkc').innerHTML=h;
+}
+
+function renderFab(mg){
+  const st=mg.duct_items.filter(d=>d.type?.toLowerCase().includes('straight'));
+  const ft=mg.duct_items.filter(d=>d.type&&!d.type.toLowerCase().includes('straight'));
+  const bySz={};
+  st.forEach(item=>{
+    const sz=item.size||'Unknown';
+    if(!bySz[sz])bySz[sz]={size:sz,pieces:[],tot4:0,totR:0};
+    const qty=item.count||1;
+    bySz[sz].pieces.push({...item,qty});
+    bySz[sz].tot4+=(item.sections_4ft||0)*qty;
+    bySz[sz].totR+=(item.remainder_inches||0)*qty;
+  });
+  const sgs=Object.values(bySz);
+  const grand=sgs.reduce((s,g)=>s+g.tot4,0);
+  let h=`<div class="ph2"><div style="font-size:16px;font-weight:900;color:#C0392B">⭐ Performance Mechanical Texas LLC</div><div style="font-size:12px;margin-top:3px">Fabrication List — 4-ft Sections</div></div>
+    <div class="st">4-ft Fabrication List</div>
+    <div class="nc"><span>🔧</span>Each straight piece is divided into 4-ft shop sections for metal fabrication. Remainders shown separately.</div>`;
+  sgs.forEach(grp=>{
+    const ef=Math.floor(grp.totR/12),ei=Math.round(grp.totR%12);
+    h+=`<div class="fc"><div class="fh">
+      <span class="fsz">${grp.size}"</span>
+      <span class="fct">${grp.pieces.reduce((s,p)=>s+p.qty,0)} pcs · ${grp.tot4} × 4' sections</span>
+    </div><div class="tw" style="border:none;border-radius:0"><table>
+      <thead><tr><th>Mark</th><th>Qty</th><th>Length</th><th>× 4-ft</th><th>Remainder</th></tr></thead>
+      <tbody>
+        ${grp.pieces.map(p=>`<tr>
+          <td class="mk">${p.mark||'—'}</td><td>${p.qty}</td>
+          <td class="sz">${p.length||'—'}</td>
+          <td class="se">${(p.sections_4ft||0)*p.qty} pcs</td>
+          <td class="rm">${((p.remainder_inches||0)*p.qty)>0?Math.floor(((p.remainder_inches||0)*p.qty)/12)+"' "+Math.round((p.remainder_inches||0)*p.qty%12)+'"':'—'}</td>
+        </tr>`).join('')}
+        <tr class="tr2"><td colspan="3">TOTAL — ${grp.size}"</td>
+          <td class="se">${grp.tot4} × 4-ft</td>
+          <td class="rm">${ef>0?ef+"' "+ei+'"':ei>0?ei+'"':'—'}</td>
+        </tr>
+      </tbody></table></div></div>`;
+  });
+  if(sgs.length)h+=`<div class="gc">
+    <div class="gl">Grand Total — All Duct Sizes</div>
+    <div class="gv">${grand} <span style="font-size:14px;font-weight:500;color:var(--mt)">pieces × 4-ft</span></div>
+    <div class="gs">Total shop fabrication sections</div>
+  </div>`;
+  else h+=`<div class="em"><div class="emi">📏</div><div class="emt">No straight sections detected in this drawing.</div></div>`;
+  if(ft.length){
+    const ftM={};
+    ft.forEach(f=>{const tp=f.type||'Unknown';if(!ftM[tp])ftM[tp]={type:tp,count:0,sizes:new Set()};
+      ftM[tp].count+=(f.count||1);if(f.size)ftM[tp].sizes.add(f.size);});
+    h+=`<div class="st">Fittings Summary</div><div class="tw"><table>
+      <thead><tr><th>Type</th><th>Total Qty</th><th>Sizes</th></tr></thead>
+      <tbody>${Object.values(ftM).map(f=>`<tr><td>${f.type}</td><td class="se">${f.count}</td>
+        <td class="sz">${[...f.sizes].join(', ')||'—'}</td></tr>`).join('')}</tbody>
+    </table></div>`;
+  }
+  h+=`<div class="er">
+    <button class="bx bc" onclick="expFabCSV()">⬇ Fabrication CSV</button>
+    <button class="bx bp" onclick="printReport('fab')">🖨 Print PDF</button>
+  </div>`;
+  document.getElementById('fbem').style.display='none';
+  document.getElementById('fbc').style.display='block';
+  document.getElementById('fbc').innerHTML=h;
+}
+
+function renderEst(mg){
+  const rows=[
+    ...mg.duct_items.map(d=>({
+      mark:d.mark||'—',
+      qty:(d.count||1)*(d.type?.toLowerCase().includes('straight')?(d.sections_4ft||1):1),
+      desc:`${d.type||''} ${d.size||''}`.trim(),
+      unit:d.type?.toLowerCase().includes('straight')?'4-ft Section':'EA'
+    })),
+    ...mg.grilles.map(g=>({mark:g.mark||'—',qty:g.count||1,desc:`${g.type||'Grille'} ${g.size||''}`.trim(),unit:'EA'})),
+    ...mg.valves.map(v=>({mark:'V',qty:v.count||1,desc:`${v.type||'Valve'} ${v.size||''}`.trim(),unit:'EA'}))
+  ];
+  let h=`<div class="ph2"><div style="font-size:16px;font-weight:900;color:#C0392B">⭐ Performance Mechanical Texas LLC</div><div style="font-size:12px;margin-top:3px">Price Estimate</div></div>
+    <div class="st">Price Estimate</div>
+    <div class="nc"><span>💡</span>Enter unit price for each item. Totals calculate automatically. Export to CSV when done.</div>
+    <div class="et">
+      <div><div class="etl">TOTAL ESTIMATE</div><div style="font-size:9px;color:var(--mt);margin-top:2px">Updates as you type</div></div>
+      <div class="etv" id="gt">$0.00</div>
+    </div>
+    <div class="tw"><table>
+      <thead><tr><th>Mark</th><th>Description</th><th>Qty</th><th>Unit</th><th>Unit Price</th><th>Total</th></tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr>
+        <td class="mk">${r.mark}</td><td>${r.desc}</td><td>${r.qty}</td>
+        <td style="font-family:var(--mo);font-size:9.5px;color:var(--mt)">${r.unit}</td>
+        <td><input class="pi" type="number" min="0" step="0.01" placeholder="0.00" data-qty="${r.qty}" oninput="calcT()" id="pi${i}"/></td>
+        <td class="tc" id="pt${i}">$0.00</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <div class="er">
+      <button class="bx bc" onclick="expEstCSV()">⬇ Estimate CSV</button>
+      <button class="bx bp" onclick="printReport('est')">🖨 Print Estimate</button>
+      <button class="bx be" onclick="clrP()">↺ Clear Prices</button>
+    </div>`;
+  document.getElementById('estem').style.display='none';
+  document.getElementById('estc').style.display='block';
+  document.getElementById('estc').innerHTML=h;
+}
+
+function calcT(){
+  let grand=0;
+  document.querySelectorAll('.pi').forEach((inp,i)=>{
+    const qty=parseFloat(inp.dataset.qty)||0,price=parseFloat(inp.value)||0,total=qty*price;
+    grand+=total;
+    const c=document.getElementById(`pt${i}`);
+    if(c)c.textContent='$'+total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  });
+  const gt=document.getElementById('gt');
+  if(gt)gt.textContent='$'+grand.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+function clrP(){document.querySelectorAll('.pi').forEach(i=>i.value='');calcT();}
+
+/* ═══════════ EXPORTS & PRINT ═══════════ */
+function printReport(tab){
+  switchTab(tab);
+  setTimeout(()=>window.print(),300);
+}
+
+function expCSV(){
+  if(!gData)return;
+  const items=gData.flatMap(d=>d.duct_items||[]);
+  const rows=[['Mark','Count','Type','Size','Length','Elevation','File']];
+  items.forEach(i=>rows.push([i.mark,i.count,i.type,i.size,i.length,i.elevation||'',gData.find(d=>d.duct_items?.includes(i))?._fn||'']));
+  dlCSV('takeoff_schedule.csv',rows);
+}
+
+function expFabCSV(){
+  if(!gData)return;
+  const items=gData.flatMap(d=>d.duct_items||[]).filter(d=>d.type?.toLowerCase().includes('straight'));
+  const rows=[['Mark','Qty','Size','Total Length','4-ft Sections','Remainder (inches)','File']];
+  items.forEach(i=>rows.push([i.mark,i.count,i.size,i.length,
+    (i.sections_4ft||0)*(i.count||1),(i.remainder_inches||0)*(i.count||1),
+    gData.find(d=>d.duct_items?.includes(i))?._fn||'']));
+  const grand=items.reduce((s,i)=>s+(i.sections_4ft||0)*(i.count||1),0);
+  rows.push(['','','','GRAND TOTAL 4-ft SECTIONS:',grand,'','']);
+  dlCSV('fabrication_list.csv',rows);
+}
+
+function expEstCSV(){
+  const rows=[['Mark','Description','Qty','Unit','Unit Price','Line Total']];
+  document.querySelectorAll('.pi').forEach((inp,i)=>{
+    const tr=inp.closest('tr'),cells=tr.querySelectorAll('td');
+    rows.push([cells[0].textContent,cells[1].textContent,cells[2].textContent,
+      cells[3].textContent,inp.value||'0',cells[5].textContent]);
+  });
+  const gt=document.getElementById('gt')?.textContent||'$0.00';
+  rows.push(['','','','','TOTAL ESTIMATE:',gt]);
+  dlCSV('estimate.csv',rows);
+}
+
+function dlCSV(name,rows){
+  const csv=rows.map(r=>r.map(c=>`"${(c||'').toString().replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ═══════════ TABS ═══════════ */
+function switchTab(name){
+  const names=['upload','takeoff','fab','est'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.panel').forEach((p,i)=>p.classList.toggle('active',`tab-${names[i]}`===`tab-${name}`));
+}
+</script>
+</body>
+</html>
